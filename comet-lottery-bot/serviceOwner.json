@@ -1,0 +1,15 @@
+{
+  "ownerMnemonic": "",
+  "ownerMnemonicPw": "",
+  "cometId": "",
+  "cometTicketPrice": 100,
+  "timeBeforeUnlockMS": 600000,
+  "distributionAddress": "",
+  "singletonName": "Comet Lottery Ticket Tracking Test Singleton",
+  "singletonDesc": "This is a random description",
+  "ticketName": "Comet Lottery Ticket",
+  "ticketDesc": "Random Description",
+  "oracleNFT": "f2f64bab1f2e9ab65c0e4a6a65eed0b26c5276eb5dda01d4a0e0ebe8a85bfbfc",
+  "nodeUrl": "",
+  "apiUrl": ""
+}
