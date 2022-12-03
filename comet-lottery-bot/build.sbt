@@ -2,10 +2,10 @@ scalaVersion := "2.12.16"
 
 name := "comet-lottery"
 organization := "com.comet"
-version := "0.0.1"
+version := "1.0.0"
 
 
-ThisBuild / version      := "0.0.1"
+ThisBuild / version      := "1.0.0"
 
 // Note, it's not required for you to define these three settings. These are
 // mostly only necessary if you intend to publish your library's binaries on a
@@ -67,6 +67,8 @@ assemblyMergeStrategy in assembly := {
   case PathList("org", "bouncycastle", xs @ _*) => MergeStrategy.first
   case PathList("javax", "activation", xs @ _*) => MergeStrategy.last
   case PathList("javax", "annotation", xs @ _*) => MergeStrategy.last
+  case "lotteryConf.json" => MergeStrategy.discard
+  case "serviceOwner.json" => MergeStrategy.discard
   case other => (assemblyMergeStrategy in assembly).value(other)
 }
 
