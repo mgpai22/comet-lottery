@@ -5,12 +5,14 @@ import initilization.init
 import org.ergoplatform.ErgoBox
 import org.ergoplatform.appkit.impl.InputBoxImpl
 import org.ergoplatform.appkit.{Address, ErgoToken, ErgoValue, InputBox}
-import utils.explorerApi
+import special.collection.Coll
+import utils.{explorerApi, fileOperations}
 
 import java.util
 import scala.collection.JavaConversions._
 
 class akkaFunctions {
+  class WinnerSelectionError(message: String) extends Exception(message)
   private val client: Client = new Client()
   client.setClient
   private val ctx = client.getContext
@@ -19,6 +21,8 @@ class akkaFunctions {
   private val serviceConf = serviceOwnerConf.read(serviceFilePath)
   private val lotteryConf = conf.read(lotteryFilePath + ".json")
   private val exp = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
+  private val lotteryHistoryDir = "history/lottery/"
+  private val serviceHistoryDir = "history/service/"
 
 
   def main(): Unit ={
@@ -66,7 +70,9 @@ class akkaFunctions {
         val boxSenderAddress = Address.create(exp.getBoxesfromTransaction(boxSentTxId).getInputs.get(0).getAddress)
         val senderAddressSigmaProp = ErgoValue.of(boxSenderAddress.getPublicKey).toHex
         if ((boxR4Hex == senderAddressSigmaProp) && (box.getValue >= (0.003 * math.pow(10, 9)).toLong)) {
-          validProxyBoxes.add(box.getId.toString)
+          if(box.getTokens.get(0).getValue >= serviceConf.cometTicketPrice){
+            validProxyBoxes.add(box.getId.toString)
+          }
         }
       }
     }
@@ -87,7 +93,7 @@ class akkaFunctions {
     val exp = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
     val timeStamp = config.timeStamp.toLong
 
-    val mintUtil = new mintUtility(ctx = ctx, cometId = cometId, cometPrice = serviceConf.cometTicketPrice, ticketContract = config.ticketContract.contract,
+    val mintUtil = new mintUtility(ctx = ctx, ownerMnemonic = serviceConf.ownerMnemonic, mnemonicPassword = serviceConf.ownerMnemonicPw, cometId = cometId, cometPrice = serviceConf.cometTicketPrice, ticketContract = config.ticketContract.contract,
       singletonToken = config.ticketContract.singleton, collectionContract = config.collectionContract.contract, winnerSelectionContract = config.winnerSelectionContract.contract,
       version = config.version.toLong, distributionAddress = Address.create(serviceConf.distributionAddress))
 
@@ -141,34 +147,48 @@ class akkaFunctions {
     mint()
   }
 
-//  def handleWinnerTxnError(): Unit ={
-//    val tokenID = lotteryConf.Lottery.ticketContract.singleton
-//    val txId = exp.getUnspentBoxFromTokenID(tokenID).getTransactionId
-//    val res = exp.getBoxesfromTransaction(txId)
-//    val winnerContractBox = res.getOutputs.get(0)
-//    val index = -1 //exp.getErgoBoxfromID(winnerContractBox.getBoxId).additionalRegisters(ErgoBox.R9).value
-//    val oracleBoxId = exp.getUnspentBoxFromTokenID(serviceConf.oracleNFT).getBoxId
-//    val oracleBoxInput = exp.getUnspentBoxFromMempool(oracleBoxId)
-//    val initTx = lotteryConf.Lottery.initTransaction
-//    val winningId = mintUtility.getRandomNumberFromBoxID(oracleBoxId, (index - 1).toInt)
-//    val winningTicketId = exp.getWinningTicketWithR5(initTx, winningId.toLong)
-//    val winningBox = exp.getUnspentBoxFromTokenID(winningTicketId)
-//    val winningTicketBox = exp.getUnspentBoxFromMempool(winningBox.getBoxId)
-//    val winnerAddress = Address.create(winningBox.getAddress)
-//    val status = mintUtility.getChance(winningId.toInt, (index - 1).toInt)
-//    val newIndex = 1
-//    val newVersion = lotteryConf.Lottery.version + 1
-//    val timeStamp: Long = System.currentTimeMillis() + serviceConf.timeBeforeUnlockMS
-//    val outcomeTx = mintUtil.selectWinner(oracleBoxInput, winningTicketBox, winnerContractBox, winningTicket, serviceConf.cometId, winnerAddress, newIndex, newVersion, status, timeStamp, lotteryFilePath + ".json")
-//    val txn = ctx.sendTransaction(outcomeTx)
-//    val removedQuotes = txn.replace("\"", "")
-//    if (status) {
-//      println("Winner has been found: " + removedQuotes)
-//      return
-//    }
-//    println("Loser this round: " + removedQuotes)
-//    conf.writeV2(lotteryFilePath + ".json", newVersion, outcomeTx.getOutputsToSpend.get(0).getId.toString, outcomeTx.getOutputsToSpend.get(1).getId.toString, timeStamp)
-//  }
+  def handleWinnerTxnError(): Unit ={
+    println("Error with winner transaction, trying to handle")
+    val tokenID = lotteryConf.Lottery.ticketContract.singleton
+    val txId = exp.getUnspentBoxFromTokenID(tokenID).getTransactionId
+    val res = exp.getBoxesfromTransaction(txId)
+    val winnerContractBox = res.getOutputs.get(0)
+    val winnerContractBoxInput = exp.getUnspentBoxFromMempool(winnerContractBox.getBoxId)
+    val index = exp.getErgoBoxfromID(winnerContractBox.getBoxId).additionalRegisters(ErgoBox.R9).value.asInstanceOf[Coll[Long]](1)
+    val oracleBoxId = exp.getUnspentBoxFromTokenID(serviceConf.oracleNFT).getBoxId
+    val oracleBoxInput = exp.getUnspentBoxFromMempool(oracleBoxId)
+    val initTx = lotteryConf.Lottery.initTransaction
+    val winningId = mintUtility.getRandomNumberFromBoxID(oracleBoxId, (index - 1).toInt)
+    val winningTicketId = exp.getWinningTicketWithR5(initTx, winningId.toLong)
+    val winningBox = exp.getUnspentBoxFromTokenID(winningTicketId)
+    val winningTicketBox = exp.getUnspentBoxFromMempool(winningBox.getBoxId)
+    val winnerAddress = Address.create(winningBox.getAddress)
+    val winningTicket = new ErgoToken(winningTicketId, 1)
+    val status = mintUtility.getChance(winningId.toInt, (index - 1).toInt)
+    val newIndex = 1
+    val newVersion = lotteryConf.Lottery.version + 1
+    val timeStamp: Long = System.currentTimeMillis() + serviceConf.timeBeforeUnlockMS
+    val outcomeTx = mintUtility.selectWinner(ctx = this.ctx, ownerMnemonic = serviceConf.ownerMnemonic, mnemonicPassword = serviceConf.ownerMnemonicPw,
+      ticketContract = lotteryConf.Lottery.ticketContract.contract, collectionContract = lotteryConf.Lottery.collectionContract.contract, distributionAddress = Address.create(lotteryConf.Lottery.distributionAddress),
+      singletonToken = lotteryConf.Lottery.ticketContract.singleton, oracleBox = oracleBoxInput, winningTicketBox = winningTicketBox, winnerContract = winnerContractBoxInput, winningTicket = winningTicket,
+      cometId = serviceConf.cometId, winnerAddress = winnerAddress , newIndex = newIndex, newVersion= newVersion, status = status, timeStamp = timeStamp)
+    val txn = ctx.sendTransaction(outcomeTx)
+    val removedQuotes = txn.replace("\"", "")
+    if (status) {
+      println("Winner has been found: " + removedQuotes)
+      conf.writeWinner(lotteryFilePath + ".json", winningTicketId, winnerAddress.toString)
+      var highestFileNum = fileOperations.getLargestFileName(lotteryHistoryDir)
+      if (highestFileNum == -1) {
+        highestFileNum = 0
+      }
+      fileOperations.copyFile(lotteryFilePath + ".json", lotteryHistoryDir + "lottery_" + (highestFileNum + 1) + ".json")
+      fileOperations.copyFile(serviceFilePath, serviceHistoryDir + "serviceOwner_" + (highestFileNum + 1) + ".json")
+      conf.writeTSnull(lotteryFilePath + ".json")
+      return
+    }
+    println("Loser this round: " + removedQuotes)
+    conf.writeV2(lotteryFilePath + ".json", newVersion, outcomeTx.getOutputsToSpend.get(0).getId.toString, outcomeTx.getOutputsToSpend.get(1).getId.toString, timeStamp)
+  }
 
   def processWinner(): Unit = {
     val config = lotteryConf.Lottery
@@ -178,6 +198,10 @@ class akkaFunctions {
         val latestTicketBox = exp.getUnspentBoxFromTokenID(singleton)
         val txId = latestTicketBox.getTransactionId
         val res = exp.getBoxesfromTransaction(txId)
+        if (res.getOutputs.get(0).getAddress.equals(config.winnerSelectionContract.contract)){
+          println("addresses compared!")
+          throw new WinnerSelectionError("error found")
+        }
         val poolBoxID = exp.getUnspentBoxFromMempool(res.getOutputs.get(2).getBoxId)
         val ticketContractBoxId = exp.getUnspentBoxFromMempool(res.getOutputs.get(1).getBoxId)
         val cometAmount = poolBoxID.getTokens.get(0).getValue
@@ -195,7 +219,7 @@ class akkaFunctions {
         val winningTicket = new ErgoToken(winningTicketId, 1)
 
 
-        val mintUtil = new mintUtility(ctx = ctx, cometId = serviceConf.cometId, cometPrice = 100, ticketContract = config.ticketContract.contract,
+        val mintUtil = new mintUtility(ctx = ctx, ownerMnemonic = serviceConf.ownerMnemonic, mnemonicPassword = serviceConf.ownerMnemonicPw, cometId = serviceConf.cometId, cometPrice = serviceConf.cometTicketPrice, ticketContract = config.ticketContract.contract,
           singletonToken = config.ticketContract.singleton, collectionContract = config.collectionContract.contract, winnerSelectionContract = config.winnerSelectionContract.contract,
           version = config.version, distributionAddress = Address.create(serviceConf.distributionAddress))
 
@@ -220,13 +244,20 @@ class akkaFunctions {
           val removedQuotes = txn.replace("\"", "")
           if (status) {
             println("Winner has been found: " + removedQuotes)
+            conf.writeWinner(lotteryFilePath + ".json", winningTicketId, winnerAddress.toString)
+            var highestFileNum = fileOperations.getLargestFileName(lotteryHistoryDir)
+            if(highestFileNum == -1){
+              highestFileNum = 0
+            }
+            fileOperations.copyFile(lotteryFilePath + ".json", lotteryHistoryDir + "lottery_" + (highestFileNum + 1) +".json" )
+            fileOperations.copyFile(serviceFilePath, serviceHistoryDir + "serviceOwner_" + (highestFileNum + 1) + ".json" )
             conf.writeTSnull(lotteryFilePath + ".json")
             return
           }
           println("Loser this round: " + removedQuotes)
           conf.writeV2(lotteryFilePath + ".json", newVersion, outcomeTx.getOutputsToSpend.get(0).getId.toString, outcomeTx.getOutputsToSpend.get(1).getId.toString, timeStamp)
         } catch {
-          case e  => println("Error with winner transaction")
+          case e  => handleWinnerTxnError()
         }
       } else {
         val diff = config.timeStamp.toLong - System.currentTimeMillis()
@@ -235,6 +266,7 @@ class akkaFunctions {
     } catch {
       case e: IndexOutOfBoundsException => handleProcessWinnerIndexError()
       case e: RuntimeException => handleProcessWinnerIndexError()
+      case e: WinnerSelectionError => handleWinnerTxnError()
     }
   }
 }

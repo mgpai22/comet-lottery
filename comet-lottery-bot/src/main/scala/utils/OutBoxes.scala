@@ -111,6 +111,14 @@ class OutBoxes(ctx: BlockchainContext){
       .build()
   }
 
+  def refundBox(singleTon: ErgoToken, senderAddress: Address, amount: Double): OutBox = {
+    this.txBuilder.outBoxBuilder()
+      .value(getAmount(amount))
+      .tokens(singleTon)
+      .contract(new ErgoTreeContract(senderAddress.getErgoAddress.script, this.ctx.getNetworkType))
+      .build()
+  }
+
   def newTicketBox(singleTon: ErgoToken, contract: ErgoContract, version: Long, index: Long, timeStamp: Long, distributionAddress: Address, amount: Double): OutBox ={
     this.txBuilder.outBoxBuilder()
       .value(getAmount(amount))

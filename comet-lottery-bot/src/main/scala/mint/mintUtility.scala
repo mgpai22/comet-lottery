@@ -9,18 +9,25 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
-class mintUtility(val ctx: BlockchainContext, cometId: String, cometPrice:Long, ticketContract: String, singletonToken: String, collectionContract: String,
+class mintUtility(val ctx: BlockchainContext, ownerMnemonic: String,  mnemonicPassword: String, cometId: String, cometPrice:Long, ticketContract: String, singletonToken: String, collectionContract: String,
                   winnerSelectionContract: String, version: Long, distributionAddress: Address) {
 
   private val api = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
   private val outBoxObj = new OutBoxes(ctx)
-  private val ownerMnemonic = ""
-  private val ownerTxHelper = new TransactionHelper(ctx = ctx, walletMnemonic = ownerMnemonic, mnemonicPassword = "")
+  private val ownerTxHelper = new TransactionHelper(ctx = ctx, walletMnemonic = ownerMnemonic, mnemonicPassword = mnemonicPassword)
 
 
 
 
 //  private val proxySender = Address.create("3WwLBpX7D9eyaV9gWHeaSp22XwEvLQ9huEg9otg8rKXQw4xPtYzq")
+
+  def convertERGLongToDouble(num: Long): Double ={
+    val value = num * math.pow(10, -9)
+    val x = (math floor value * 1000) / 1000
+    val bNum = math.BigDecimal(x)
+    val finalNum = bNum.underlying().stripTrailingZeros()
+    finalNum.toString.toDouble
+  }
 
 
 
@@ -41,10 +48,10 @@ class mintUtility(val ctx: BlockchainContext, cometId: String, cometPrice:Long, 
     }
     inputValueIdeal.append(input0.getValue)
     inputValueIdeal.append(input1.getValue)
-    val buyerAmountPaid = 0.012 //change later
+    val buyerAmountPaid = 0.003
     inputValueIdeal.append((buyerAmountPaid * math.pow(10, 9).toLong).toLong)
 
-    val change: Long = 0 //inputValue.sum - inputValueIdeal.sum
+    val change: Double = this.convertERGLongToDouble(inputValue.sum - inputValueIdeal.sum)
     val ticket: Eip4Token = outBoxObj.tokenHelper(input0, name, description, 1, 0)
     val newTicketContractBox: OutBox = outBoxObj.newTicketBox(new ErgoToken(singletonToken, 1), Address.create(ticketContract).toErgoContract, version, index, timeStamp, distributionAddress, 0.001)
     val proxyInputSentTxId: String = api.getBoxbyIDfromExplorer(input2.getId.toString).getTransactionId
@@ -56,9 +63,8 @@ class mintUtility(val ctx: BlockchainContext, cometId: String, cometPrice:Long, 
 
     val paymentBox: OutBox = outBoxObj.ticketPayoutBox(Address.create(collectionContract).toErgoContract, new ErgoToken(cometId, cometPrice + input0.getTokens.get(0).getValue), version, index, timeStamp: Long, paymentBoxValue)
     val OutBox: List[OutBox] = List(buyerOutBox, newTicketContractBox, paymentBox)
-    val txHelper = new TransactionHelper(ctx = ctx, walletMnemonic = "", mnemonicPassword = "")
-    val unsignedTx = txHelper.buildUnsignedTransactionWithDataInputs(inputs.asJava, OutBox, inputs.asJava)
-    txHelper.signTransaction(unsignedTx)
+    val unsignedTx = ownerTxHelper.buildUnsignedTransactionWithDataInputs(inputs.asJava, OutBox, inputs.asJava)
+    ownerTxHelper.signTransaction(unsignedTx)
   }
 
   def buildLotteryMintChained(name: String, description: String, proxyInput: String, index: Long, timeStamp: Long, poolBox: InputBox, ticketContractBox: InputBox): SignedTransaction = {
@@ -80,7 +86,7 @@ class mintUtility(val ctx: BlockchainContext, cometId: String, cometPrice:Long, 
     val buyerAmountPaid = 0.003
     inputValueIdeal.append((buyerAmountPaid * math.pow(10, 9).toLong).toLong)
 
-    val change: Long = inputValue.sum - inputValueIdeal.sum
+    val change: Double = this.convertERGLongToDouble(inputValue.sum - inputValueIdeal.sum)
     val ticket: Eip4Token = outBoxObj.tokenHelper(input0, name, description, 1, 0)
     val newTicketContractBox: OutBox = outBoxObj.newTicketBox(new ErgoToken(singletonToken, 1), Address.create(ticketContract).toErgoContract, version, index, timeStamp, distributionAddress, 0.001)
     val proxyInputSentTxId: String = api.getBoxbyIDfromExplorer(input2.getId.toString).getTransactionId
@@ -92,9 +98,8 @@ class mintUtility(val ctx: BlockchainContext, cometId: String, cometPrice:Long, 
 
     val paymentBox: OutBox = outBoxObj.ticketPayoutBox(Address.create(collectionContract).toErgoContract, new ErgoToken(cometId, cometPrice + input0.getTokens.get(0).getValue), version, index, timeStamp: Long, paymentBoxValue)
     val OutBox: List[OutBox] = List(buyerOutBox, newTicketContractBox, paymentBox)
-    val txHelper = new TransactionHelper(ctx = ctx, walletMnemonic = "", mnemonicPassword = "")
-    val unsignedTx = txHelper.buildUnsignedTransactionWithDataInputs(inputs.asJava, OutBox, inputs.asJava)
-    txHelper.signTransaction(unsignedTx)
+    val unsignedTx = ownerTxHelper.buildUnsignedTransactionWithDataInputs(inputs.asJava, OutBox, inputs.asJava)
+    ownerTxHelper.signTransaction(unsignedTx)
   }
 
   def initWinnerContract(collectionContractInput: InputBox, ticketContractInput: InputBox,
@@ -137,11 +142,12 @@ class mintUtility(val ctx: BlockchainContext, cometId: String, cometPrice:Long, 
 
     val unsignedWinner = ownerTxHelper.buildUnsignedTransactionWithDataInputsWithTokensToBurn(List(inputBox).asJava, outBoxWinner, dataInputs, List(inputBox.getTokens.get(1)))
 
-    if(status){
+    if (status) {
       return ownerTxHelper.signTransaction(unsignedWinner)
     }
     ownerTxHelper.signTransaction(unsignedTxLoser)
   }
+
 
 }
 
@@ -163,4 +169,35 @@ object mintUtility{
 //  println(num)
 //  println(getChance(num.toInt, rnge))
 //  println(((BigInt(num.toInt - 1) % BigInt(rnge)) * 1000))
+
+  def selectWinner(ctx: BlockchainContext, ownerMnemonic: String, mnemonicPassword: String, ticketContract: String, collectionContract: String, distributionAddress: Address, singletonToken: String, oracleBox: InputBox, winningTicketBox: InputBox, winnerContract: InputBox, winningTicket: ErgoToken, cometId: String, winnerAddress: Address, newIndex: Long, newVersion: Long, status: Boolean, timeStamp: Long): SignedTransaction = {
+    val outBoxObj = new OutBoxes(ctx)
+    val api = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
+    val ownerTxHelper = new TransactionHelper(ctx = ctx, walletMnemonic = ownerMnemonic, mnemonicPassword = mnemonicPassword)
+    val dataInputs = new util.ArrayList[InputBox]()
+    dataInputs.add(oracleBox)
+    dataInputs.add(winningTicketBox)
+    val issuerBox: ErgoBox = api.getErgoBoxfromID(winningTicket.getId.toString)
+    val inputBox: InputBox = winnerContract.withContextVars(ContextVar.of(0.toByte, issuerBox))
+
+    val prizeValue = winnerContract.getTokens.get(0).getValue
+    val cometWinner = new ErgoToken(cometId, (prizeValue * 0.9).toLong)
+    val cometDistribution = new ErgoToken(cometId, (prizeValue * 0.1).toLong)
+    val comet = new ErgoToken(cometId, prizeValue)
+
+    val outBoxLoser = outBoxObj.loserOutBox(Address.create(ticketContract).toErgoContract, Address.create(collectionContract).toErgoContract, distributionAddress,
+      new ErgoToken(singletonToken, 1), comet, newIndex, newVersion, timeStamp)
+
+
+    val unsignedTxLoser = ownerTxHelper.buildUnsignedTransactionWithDataInputs(List(inputBox).asJava, outBoxLoser, dataInputs)
+
+    val outBoxWinner = outBoxObj.lotteryWinnerBox(cometWinner, cometDistribution, winnerAddress, distributionAddress)
+
+    val unsignedWinner = ownerTxHelper.buildUnsignedTransactionWithDataInputsWithTokensToBurn(List(inputBox).asJava, outBoxWinner, dataInputs, List(inputBox.getTokens.get(1)))
+
+    if (status) {
+      return ownerTxHelper.signTransaction(unsignedWinner)
+    }
+    ownerTxHelper.signTransaction(unsignedTxLoser)
+  }
 }

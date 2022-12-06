@@ -19,7 +19,9 @@ case class Config(
                   ticketContract: TicketContract,
                   collectionContract: CollectionContract,
                   proxyContract: ProxyContract,
-                  winnerSelectionContract: WinnerSelectionContract
+                  winnerSelectionContract: WinnerSelectionContract,
+                   winningNFT: String,
+                   winningAddress: String
                   )
 case class TicketContract(
                          contract: String,
@@ -75,7 +77,7 @@ class conf(version: Int, ticketContract: String, singleton: String, initialTCBox
   val collectionContractInstance: CollectionContract = CollectionContract(collectionContract, initialCCBox)
   val proxyContractInstance: ProxyContract = ProxyContract(proxyContract)
   val winnerSelectionContractInstance: WinnerSelectionContract = WinnerSelectionContract(winnerSelectionContract)
-  val conf = Config(version, "null", distributionAddress, "true", timeStamp, ticketContract = ticketContractInstance, collectionContract = collectionContractInstance, proxyContract = proxyContractInstance, winnerSelectionContract = winnerSelectionContractInstance)
+  val conf = Config(version, "null", distributionAddress, "true", timeStamp, ticketContract = ticketContractInstance, collectionContract = collectionContractInstance, proxyContract = proxyContractInstance, winnerSelectionContract = winnerSelectionContractInstance, winningNFT = "null", winningAddress = "null")
   val newConfig: LotteryConfig = LotteryConfig(conf)
   private val gson = new GsonBuilder().setPrettyPrinting().create()
 
@@ -107,14 +109,14 @@ object conf{
 
   def writeTx(filePath: String, initTx: String): Unit ={
     val res = read(filePath)
-    val conf = Config(res.Lottery.version, initTx, res.Lottery.distributionAddress, res.Lottery.firstTime, res.Lottery.timeStamp, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract)
+    val conf = Config(res.Lottery.version, initTx, res.Lottery.distributionAddress, res.Lottery.firstTime, res.Lottery.timeStamp, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = res.Lottery.winningNFT, winningAddress = res.Lottery.winningAddress)
     val newConfig: LotteryConfig = LotteryConfig(conf)
     write(filePath, newConfig)
   }
 
   def writeFirstTime(filePath: String, firstTime: String): Unit = {
     val res = read(filePath)
-    val conf = Config(res.Lottery.version, res.Lottery.initTransaction, res.Lottery.distributionAddress, firstTime, res.Lottery.timeStamp, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract)
+    val conf = Config(res.Lottery.version, res.Lottery.initTransaction, res.Lottery.distributionAddress, firstTime, res.Lottery.timeStamp, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = res.Lottery.winningNFT, winningAddress = res.Lottery.winningAddress)
     val newConfig: LotteryConfig = LotteryConfig(conf)
     write(filePath, newConfig)
   }
@@ -123,17 +125,25 @@ object conf{
     val res = read(filePath)
     val ticketContract = TicketContract(res.Lottery.ticketContract.contract, res.Lottery.ticketContract.singleton, ticketContractInitialBox)
     val collectionContract = CollectionContract(res.Lottery.collectionContract.contract, collectionContractInitialBox)
-    val conf = Config(version, "null", res.Lottery.distributionAddress, "true", timeStamp.toString, ticketContract = ticketContract, collectionContract = collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract)
+    val conf = Config(version, "null", res.Lottery.distributionAddress, "true", timeStamp.toString, ticketContract = ticketContract, collectionContract = collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = res.Lottery.winningNFT, winningAddress = res.Lottery.winningAddress)
     val newConfig: LotteryConfig = LotteryConfig(conf)
     write(filePath, newConfig)
   }
 
   def writeTSnull(filePath: String): Unit = {
     val res = read(filePath)
-    val conf = Config(res.Lottery.version, res.Lottery.initTransaction, res.Lottery.distributionAddress, res.Lottery.firstTime, "null", ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract)
+    val conf = Config(res.Lottery.version, res.Lottery.initTransaction, res.Lottery.distributionAddress, res.Lottery.firstTime, "null", ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = "null", winningAddress = "null")
     val newConfig: LotteryConfig = LotteryConfig(conf)
     write(filePath, newConfig)
   }
+
+  def writeWinner(filePath: String, winningNFT: String, winningAddress: String): Unit = {
+    val res = read(filePath)
+    val conf = Config(res.Lottery.version, res.Lottery.initTransaction, res.Lottery.distributionAddress, res.Lottery.firstTime, res.Lottery.timeStamp, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = winningNFT, winningAddress = winningAddress)
+    val newConfig: LotteryConfig = LotteryConfig(conf)
+    write(filePath, newConfig)
+  }
+
 }
 
 object serviceOwnerConf {
