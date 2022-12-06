@@ -2,7 +2,7 @@ package utils
 
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
-object fileOperations extends App {
+object fileOperations{
   def copyFile(sourcePath: String, destinationPath: String): Unit ={
     val sPath = Paths.get(sourcePath)
     val dPath = Paths.get(destinationPath)
@@ -34,11 +34,4 @@ object fileOperations extends App {
       -1
     }
   }
-  val sourcePath = "lotteryConf.json"
-  val destinationPath = "history/lottery/lottery_5.json"
-//  copyFile(sourcePath, destinationPath)
-//  deleteFile(destinationPath)
-  val largestFileName = getLargestFileName("history/lottery/")
-  val newName = "history/lottery/" + "lottery_" + (largestFileName + 1)
-  println(newName)
 }
