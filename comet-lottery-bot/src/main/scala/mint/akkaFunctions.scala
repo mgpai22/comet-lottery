@@ -1,4 +1,5 @@
 package mint
+import akka.actor.ActorRef
 import configs.{conf, serviceOwnerConf}
 import initilization.init
 import org.ergoplatform.ErgoBox
@@ -14,6 +15,7 @@ import scala.collection.mutable.ListBuffer
 
 class akkaFunctions(follow: Boolean = false, serviceUrl: String = null, lotteryUrl: String = null) {
   class WinnerSelectionError(message: String) extends Exception(message)
+  class DataChanged(message: String) extends Exception(message)
   private val client: Client = new Client()
   client.setClient
   private val ctx = client.getContext
@@ -80,10 +82,10 @@ class akkaFunctions(follow: Boolean = false, serviceUrl: String = null, lotteryU
       if (initTx == null){
         println("issue with getting new initTx")
         conf.writeInitTx(lotteryFilePath + ".json", "null")
-        return
+        throw new DataChanged("issue with getting new initTx")
       }
       conf.writeInitTx(lotteryFilePath + ".json", initTx)
-      return
+      throw new DataChanged("")
     }
 
     val initOutput = exp.getBoxesfromTransaction(lotteryConf.Lottery.initTransaction).getOutputs
@@ -102,9 +104,10 @@ class akkaFunctions(follow: Boolean = false, serviceUrl: String = null, lotteryU
       if (initTx == null){
         println("issue with getting new initTx")
         conf.writeInitTx(lotteryFilePath + ".json", "null")
-        return
+        throw new DataChanged("issue with getting new initTx")
       }
       conf.writeInitTx(lotteryFilePath + ".json", initTx)
+      throw new DataChanged("")
     }
   }
 
@@ -292,6 +295,7 @@ class akkaFunctions(follow: Boolean = false, serviceUrl: String = null, lotteryU
     val winnerContractBox = res.getOutputs.get(0)
     val winnerContractBoxInput = exp.getUnspentBoxFromMempool(winnerContractBox.getBoxId)
     val index = exp.getErgoBoxfromID(winnerContractBox.getBoxId).additionalRegisters(ErgoBox.R9).value.asInstanceOf[Coll[Long]](1)
+    println("version from self: " + exp.getErgoBoxfromID(winnerContractBox.getBoxId).additionalRegisters(ErgoBox.R9).value.asInstanceOf[Coll[Long]](0))
     val oracleBoxId = exp.getUnspentBoxFromTokenID(serviceConf.oracleNFT).getBoxId
     val oracleBoxInput = exp.getUnspentBoxFromMempool(oracleBoxId)
     val initTx = lotteryConf.Lottery.initTransaction
@@ -299,7 +303,7 @@ class akkaFunctions(follow: Boolean = false, serviceUrl: String = null, lotteryU
     val winningTicketId = exp.getWinningTicketWithR5(initTx, winningId.toLong) //root cause!!! Gets wrong version of ticket lol
     val winningBox = exp.getUnspentBoxFromTokenID(winningTicketId)
     val winningTicketBox = exp.getUnspentBoxFromMempool(winningBox.getBoxId)
-    println(winningId)
+    println("winning ticket number: " + winningId)
     val winnerAddress = Address.create(winningBox.getAddress)
     val winningTicket = new ErgoToken(winningTicketId, 1)
     val status = mintUtility.getChance(winningId.toInt, (index - 1).toInt)
@@ -360,7 +364,7 @@ class akkaFunctions(follow: Boolean = false, serviceUrl: String = null, lotteryU
         }
 //        val oracleBoxId = "415655d5064d9f09f00657b165442684968298446bba506c216101ddb467738d" //loser for v1
 //        val oracleBoxId = "28df3488741ff5896b8c4951a05ba9e724a8c7bdceb9470756506a130af7cc2a" //winner at 20 buys aka 21 index
-        fixInitTxData()
+        fixInitTxData() //although this is called, the old data does not get refreshed, therefore, wrong registers get set for R4 during init
 
         val oracleBoxId = exp.getUnspentBoxFromTokenID(serviceConf.oracleNFT).getBoxId
         val initTx = config.initTransaction

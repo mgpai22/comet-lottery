@@ -14,7 +14,7 @@ class LotteryJob() extends Actor with ActorLogging{
   }
 
   def mint(): Unit ={
-    val akka = new akkaFunctions
+    val akka = new akkaFunctions()
     akka.main()
   }
 }
@@ -29,7 +29,7 @@ object Main extends App{
 
     val jobs: ActorRef = schedulerActorSystem.actorOf(
       Props(
-        new LotteryJob()
+        new LotteryJob
       ),
       "scheduler"
     )

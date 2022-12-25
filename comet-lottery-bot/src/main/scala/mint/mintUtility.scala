@@ -176,13 +176,13 @@ object mintUtility{
 
   def selectWinner(ctx: BlockchainContext, ownerMnemonic: String, mnemonicPassword: String, ticketContract: String, collectionContract: String, distributionAddress: Address, singletonToken: String, oracleBox: InputBox, winningTicketBox: InputBox, winnerContract: InputBox, winningTicket: ErgoToken, cometId: String, winnerAddress: Address, newIndex: Long, newVersion: Long, status: Boolean, timeStamp: Long): SignedTransaction = {
     val outBoxObj = new OutBoxes(ctx)
-    println("winner is being selected")
     val api = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
     val ownerTxHelper = new TransactionHelper(ctx = ctx, walletMnemonic = ownerMnemonic, mnemonicPassword = mnemonicPassword)
     val dataInputs = new util.ArrayList[InputBox]()
     dataInputs.add(oracleBox)
     dataInputs.add(winningTicketBox)
     val issuerBox: ErgoBox = api.getErgoBoxfromID(winningTicket.getId.toString)
+    println("issuer box id: " + winningTicket.getId.toString)
     println(issuerBox.additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long])
     val inputBox: InputBox = winnerContract.withContextVars(ContextVar.of(0.toByte, issuerBox))
 
