@@ -66,9 +66,9 @@ class serviceOwnerConf(ownerMnemonic: String, ownerMnemonicPw: String, cometId: 
     writer.close()
   }
 
-  def read(filePath: String): LotteryConfig = {
+  def read(filePath: String): ServiceOwnerConfig = {
     val jsonString: String = Source.fromFile(filePath).mkString
-    gson.fromJson(jsonString, classOf[LotteryConfig])
+    gson.fromJson(jsonString, classOf[ServiceOwnerConfig])
   }
 }
 
@@ -121,11 +121,23 @@ object conf{
     write(filePath, newConfig)
   }
 
-  def writeV2(filePath: String, version: Int, ticketContractInitialBox: String, collectionContractInitialBox: String, timeStamp: Long): Unit = {
+  def writeV2(filePath: String, version: Int, timeStamp: Long): Unit = {
     val res = read(filePath)
-    val ticketContract = TicketContract(res.Lottery.ticketContract.contract, res.Lottery.ticketContract.singleton, ticketContractInitialBox)
-    val collectionContract = CollectionContract(res.Lottery.collectionContract.contract, collectionContractInitialBox)
-    val conf = Config(version, "null", res.Lottery.distributionAddress, "true", timeStamp.toString, ticketContract = ticketContract, collectionContract = collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = res.Lottery.winningNFT, winningAddress = res.Lottery.winningAddress)
+    val conf = Config(version, res.Lottery.initTransaction, res.Lottery.distributionAddress, res.Lottery.firstTime, timeStamp.toString, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = "null", winningAddress = "null")
+    val newConfig: LotteryConfig = LotteryConfig(conf)
+    write(filePath, newConfig)
+  }
+
+  def writeVersion(filePath: String, version: Int): Unit = {
+    val res = read(filePath)
+    val conf = Config(version, res.Lottery.initTransaction, res.Lottery.distributionAddress, res.Lottery.firstTime, res.Lottery.timeStamp, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = "null", winningAddress = "null")
+    val newConfig: LotteryConfig = LotteryConfig(conf)
+    write(filePath, newConfig)
+  }
+
+  def writeTS(filePath: String, timeStamp: Long): Unit = {
+    val res = read(filePath)
+    val conf = Config(res.Lottery.version, res.Lottery.initTransaction, res.Lottery.distributionAddress, res.Lottery.firstTime, timeStamp.toString, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = "null", winningAddress = "null")
     val newConfig: LotteryConfig = LotteryConfig(conf)
     write(filePath, newConfig)
   }
@@ -133,6 +145,13 @@ object conf{
   def writeTSnull(filePath: String): Unit = {
     val res = read(filePath)
     val conf = Config(res.Lottery.version, res.Lottery.initTransaction, res.Lottery.distributionAddress, res.Lottery.firstTime, "null", ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = "null", winningAddress = "null")
+    val newConfig: LotteryConfig = LotteryConfig(conf)
+    write(filePath, newConfig)
+  }
+
+  def writeInitTx(filePath: String, initTx: String): Unit = {
+    val res = read(filePath)
+    val conf = Config(res.Lottery.version, initTx, res.Lottery.distributionAddress, res.Lottery.firstTime, res.Lottery.timeStamp, ticketContract = res.Lottery.ticketContract, collectionContract = res.Lottery.collectionContract, proxyContract = res.Lottery.proxyContract, winnerSelectionContract = res.Lottery.winnerSelectionContract, winningNFT = "null", winningAddress = "null")
     val newConfig: LotteryConfig = LotteryConfig(conf)
     write(filePath, newConfig)
   }

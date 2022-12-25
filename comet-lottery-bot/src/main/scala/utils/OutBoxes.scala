@@ -5,6 +5,7 @@ import org.ergoplatform.appkit.impl.{Eip4TokenBuilder, ErgoTreeContract}
 import boxes.Box
 import org.ergoplatform.ErgoBox
 import org.ergoplatform.appkit.JavaHelpers.JLongRType
+import sigmastate.basics.DLogProtocol.DLogSigmaProtocol
 import special.collection.Coll
 
 import java.util

@@ -50,6 +50,7 @@ libraryDependencies += "com.lihaoyi" %% "requests" % "0.6.9"
 libraryDependencies ++= Seq(
   "com.beachape" %% "enumeratum" % "1.7.0"
 )
+
 resolvers ++= Seq(
   "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases/",
   "SonaType" at "https://oss.sonatype.org/content/groups/public",

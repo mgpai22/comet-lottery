@@ -63,7 +63,7 @@
 
     val validate = allOf(
     Coll(
-       validOracleBox,
+       //validOracleBox,
        validCometTokenInContract,
        properIssuerBox,
        properVersion,

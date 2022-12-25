@@ -14,7 +14,6 @@ import org.ergoplatform.appkit.{BlockchainContext, ErgoId, ErgoToken, ErgoType, 
 import org.ergoplatform.appkit.impl.ScalaBridge
 import org.ergoplatform.explorer.client.model.{InputInfo, Items, OutputInfo, TransactionInfo}
 import org.ergoplatform.explorer.client.{DefaultApi, ExplorerApiClient}
-import org.graalvm.compiler.nodes.memory.address.AddressNode.Address
 import retrofit2.Response
 import scorex.utils.ByteArray
 import sigmastate.Values.ByteArrayConstant
@@ -74,6 +73,15 @@ class explorerApi(apiUrl: String, nodeUrl: String = serviceOwnerConf.read("servi
       return new InputBoxImpl(this.getErgoBoxfromID(boxId)).asInstanceOf[InputBox]
     }
     new InputBoxImpl(response).asInstanceOf[InputBox]
+  }
+
+  def getMem(boxId: String): Boolean = {
+    val nodeService = this.buildNodeService(this.nodeUrl).createService(classOf[UtxoApi])
+    val response = nodeService.getBoxWithPoolById(boxId).execute().body()
+    if (response == null){
+      return false
+    }
+    true
   }
 
   def getBoxbyIDfromExplorer(boxID: String): OutputInfo = {

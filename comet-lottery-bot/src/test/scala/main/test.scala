@@ -1,14 +1,18 @@
 package main
 
 import configs.{conf, serviceOwnerConf}
+import json.Register.R4
 import mint.{Client, DefaultNodeInfo, akkaFunctions}
 import mock.sendToProxy
 import org.ergoplatform.ErgoBox
-import org.ergoplatform.appkit.{Address, ErgoToken}
+import org.ergoplatform.appkit.{Address, ErgoToken, ErgoValue}
 import refund.refundFromProxy
 import special.collection.Coll
+import special.sigma.SigmaProp
 import utils.explorerApi
 
+import java.util.{List => JavaList}
+import scala.collection.mutable.ListBuffer
 import scala.language.implicitConversions
 
 object test extends App{
@@ -70,4 +74,65 @@ object mathTest extends App{
   val bNum = math.BigDecimal(x)
   val y = bNum.underlying().stripTrailingZeros()
   println(y)
+}
+
+object test1 extends App{
+  val client: Client = new Client()
+  client.setClient
+  val ctx = client.getContext
+  private val serviceFilePath = "serviceOwner.json"
+  private val serviceConf = serviceOwnerConf.read(serviceFilePath)
+  val exp = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
+  val r4 = exp.getBoxbyIDfromExplorer("ad0e1fd878526b8ae0940d2846f61f73b6d9be8dc879c1a5b96552b1e1b7c46a").getAdditionalRegisters.get("R4").serializedValue
+  println(r4)
+}
+
+object test2 extends App{
+  val client: Client = new Client()
+  client.setClient
+  val ctx = client.getContext
+  private val serviceFilePath = "serviceOwner.json"
+  private val serviceConf = serviceOwnerConf.read(serviceFilePath)
+  val exp = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
+  val r4 = exp.getUnspentBoxFromMempool("ad0e1fd878526b8ae0940d2846f61f73b6d9be8dc879c1a5b96552b1e1b7c46a").getRegisters.get(0).toHex
+  println(r4)
+}
+
+
+object getTx extends App{
+  val client: Client = new Client()
+  client.setClient
+  val ctx = client.getContext
+  private val serviceFilePath = "serviceOwner.json"
+  private val serviceConf = serviceOwnerConf.read(serviceFilePath)
+  private val lotteryFilePath = "lotteryConf.json"
+  private val lotteryConf = conf.read(lotteryFilePath)
+  val exp = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
+  val r4 = exp.getAddressInfo(lotteryConf.Lottery.winnerSelectionContract.contract)
+  val spentList = new ListBuffer[String]()
+  for (i <- 0 until r4.size()) {
+    val item = r4.get(i)
+    if(item.getSpentTransactionId != null){
+      spentList.append(item.getSpentTransactionId)
+    }
+  }
+  for(tx <- spentList) {
+    val boxes = exp.getBoxesfromTransaction(tx)
+    val addy = boxes.getOutputs.get(0).getAddress
+    if (addy == lotteryConf.Lottery.ticketContract.contract){
+    val y = exp.getErgoBoxfromID(boxes.getOutputs.get(0).getBoxId).additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long]
+    println(y)
+  }
+  }
+  val initOutput = exp.getBoxesfromTransaction(lotteryConf.Lottery.initTransaction).getOutputs
+
+  val init = {
+    if(initOutput.get(0).getAddress != lotteryConf.Lottery.ticketContract.contract) exp.getBoxesfromTransaction(lotteryConf.Lottery.initTransaction).getOutputs.get(1).getBoxId
+    else exp.getBoxesfromTransaction(lotteryConf.Lottery.initTransaction).getOutputs.get(0).getBoxId
+  }
+
+
+
+  val einit = exp.getErgoBoxfromID(init).additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long]
+  println(einit)
 }

@@ -2,7 +2,7 @@ package mint
 
 import configs.{ServiceOwnerConfig, conf, serviceOwnerConf}
 import org.ergoplatform.ErgoBox
-import org.ergoplatform.appkit.{Address, BlockchainContext, ContextVar, Eip4Token, ErgoToken, InputBox, OutBox, SignedTransaction}
+import org.ergoplatform.appkit.{Address, BlockchainContext, ContextVar, Eip4Token, ErgoToken, ErgoValue, InputBox, OutBox, SignedTransaction}
 import utils.{OutBoxes, TransactionHelper, explorerApi}
 
 import java.util
@@ -54,8 +54,9 @@ class mintUtility(val ctx: BlockchainContext, ownerMnemonic: String,  mnemonicPa
     val change: Double = this.convertERGLongToDouble(inputValue.sum - inputValueIdeal.sum)
     val ticket: Eip4Token = outBoxObj.tokenHelper(input0, name, description, 1, 0)
     val newTicketContractBox: OutBox = outBoxObj.newTicketBox(new ErgoToken(singletonToken, 1), Address.create(ticketContract).toErgoContract, version, index, timeStamp, distributionAddress, 0.001)
-    val proxyInputSentTxId: String = api.getBoxbyIDfromExplorer(input2.getId.toString).getTransactionId
-    val proxySender = Address.create(api.getBoxesfromTransaction(proxyInputSentTxId).getInputs.get(0).getAddress)
+    val r4 = input2.getRegisters.get(0).toHex
+    val prop = ErgoValue.fromHex(r4).getValue.asInstanceOf[special.sigma.SigmaProp]
+    val proxySender = new org.ergoplatform.appkit.SigmaProp(prop).toAddress(this.ctx.getNetworkType)
 
     val buyerOutBox: OutBox = outBoxObj.NFToutBox(ticket, proxySender, change + 0.001)
 
@@ -89,8 +90,9 @@ class mintUtility(val ctx: BlockchainContext, ownerMnemonic: String,  mnemonicPa
     val change: Double = this.convertERGLongToDouble(inputValue.sum - inputValueIdeal.sum)
     val ticket: Eip4Token = outBoxObj.tokenHelper(input0, name, description, 1, 0)
     val newTicketContractBox: OutBox = outBoxObj.newTicketBox(new ErgoToken(singletonToken, 1), Address.create(ticketContract).toErgoContract, version, index, timeStamp, distributionAddress, 0.001)
-    val proxyInputSentTxId: String = api.getBoxbyIDfromExplorer(input2.getId.toString).getTransactionId
-    val proxySender = Address.create(api.getBoxesfromTransaction(proxyInputSentTxId).getInputs.get(0).getAddress)
+    val r4 = input2.getRegisters.get(0).toHex
+    val prop = ErgoValue.fromHex(r4).getValue.asInstanceOf[special.sigma.SigmaProp]
+    val proxySender = new org.ergoplatform.appkit.SigmaProp(prop).toAddress(this.ctx.getNetworkType)
 
     val buyerOutBox: OutBox = outBoxObj.NFToutBox(ticket, proxySender, change + 0.001)
 
@@ -126,6 +128,8 @@ class mintUtility(val ctx: BlockchainContext, ownerMnemonic: String,  mnemonicPa
     dataInputs.add(winningTicketBox)
     val issuerBox: ErgoBox = this.api.getErgoBoxfromID(winningTicket.getId.toString)
     val inputBox: InputBox = winnerContract.withContextVars(ContextVar.of(0.toByte, issuerBox))
+
+    println(issuerBox.additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long])
 
     val prizeValue = winnerContract.getTokens.get(0).getValue
     val cometWinner = new ErgoToken(cometId, (prizeValue * 0.9).toLong)
@@ -172,12 +176,14 @@ object mintUtility{
 
   def selectWinner(ctx: BlockchainContext, ownerMnemonic: String, mnemonicPassword: String, ticketContract: String, collectionContract: String, distributionAddress: Address, singletonToken: String, oracleBox: InputBox, winningTicketBox: InputBox, winnerContract: InputBox, winningTicket: ErgoToken, cometId: String, winnerAddress: Address, newIndex: Long, newVersion: Long, status: Boolean, timeStamp: Long): SignedTransaction = {
     val outBoxObj = new OutBoxes(ctx)
+    println("winner is being selected")
     val api = new explorerApi(DefaultNodeInfo(ctx.getNetworkType).explorerUrl)
     val ownerTxHelper = new TransactionHelper(ctx = ctx, walletMnemonic = ownerMnemonic, mnemonicPassword = mnemonicPassword)
     val dataInputs = new util.ArrayList[InputBox]()
     dataInputs.add(oracleBox)
     dataInputs.add(winningTicketBox)
     val issuerBox: ErgoBox = api.getErgoBoxfromID(winningTicket.getId.toString)
+    println(issuerBox.additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long])
     val inputBox: InputBox = winnerContract.withContextVars(ContextVar.of(0.toByte, issuerBox))
 
     val prizeValue = winnerContract.getTokens.get(0).getValue

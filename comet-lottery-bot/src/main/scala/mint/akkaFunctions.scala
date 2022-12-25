@@ -1,17 +1,18 @@
 package mint
-
 import configs.{conf, serviceOwnerConf}
 import initilization.init
 import org.ergoplatform.ErgoBox
 import org.ergoplatform.appkit.impl.InputBoxImpl
 import org.ergoplatform.appkit.{Address, ErgoToken, ErgoValue, InputBox}
+import org.ergoplatform.explorer.client.model.OutputInfo
 import special.collection.Coll
-import utils.{explorerApi, fileOperations}
+import utils.{explorerApi, fileOperations, masterAPI}
 
 import java.util
 import scala.collection.JavaConversions._
+import scala.collection.mutable.ListBuffer
 
-class akkaFunctions {
+class akkaFunctions(follow: Boolean = false, serviceUrl: String = null, lotteryUrl: String = null) {
   class WinnerSelectionError(message: String) extends Exception(message)
   private val client: Client = new Client()
   client.setClient
@@ -27,6 +28,21 @@ class akkaFunctions {
 
   def main(): Unit ={
     val config = lotteryConf.Lottery
+//    println(config.timeStamp)
+//    Thread.sleep(10000)
+
+    if(config.timeStamp != "null" && !lotteryConf.Lottery.firstTime.toBoolean && !follow){
+      val tokenID = lotteryConf.Lottery.ticketContract.singleton
+      val singletonBoxAddress = exp.getUnspentBoxFromTokenID(tokenID).getAddress
+      println("singleTon Box Address: " + singletonBoxAddress)
+      println("In Mempool: " + exp.getMem(exp.getUnspentBoxFromTokenID(tokenID).getBoxId))
+
+      if(((singletonBoxAddress != lotteryConf.Lottery.ticketContract.contract) && (singletonBoxAddress != lotteryConf.Lottery.winnerSelectionContract.contract)) || singletonBoxAddress == null){
+        conf.writeTSnull(lotteryFilePath + ".json")
+      }
+
+    }
+
     if(config.timeStamp == "null"){
       println("trying to initialize")
       initialize()
@@ -41,7 +57,109 @@ class akkaFunctions {
     }
   }
 
+  private def checkVersionAndTS(ticketBoxID: String): Unit ={
+    val lotteryVersion = exp.getErgoBoxfromID(ticketBoxID).additionalRegisters(ErgoBox.R4).value.toString.toLong
+    val lotteryTS = exp.getErgoBoxfromID(ticketBoxID).additionalRegisters(ErgoBox.R7).value.toString.toLong
+
+    if (lotteryVersion > lotteryConf.Lottery.version){
+      println("wrote to version")
+      conf.writeVersion(lotteryFilePath + ".json", lotteryVersion.toInt)
+    }
+
+    if (lotteryTS > lotteryConf.Lottery.timeStamp.toLong){
+      println("wrote to timestamp")
+      conf.writeTS(lotteryFilePath + ".json", lotteryTS)
+    }
+  }
+
+  def fixInitTxData(): Unit ={
+    val lotteryVersion = lotteryConf.Lottery.version
+
+    if(lotteryConf.Lottery.initTransaction == "null"){
+      val initTx = getInitTx(lotteryVersion)
+      if (initTx == null){
+        println("issue with getting new initTx")
+        conf.writeInitTx(lotteryFilePath + ".json", "null")
+        return
+      }
+      conf.writeInitTx(lotteryFilePath + ".json", initTx)
+      return
+    }
+
+    val initOutput = exp.getBoxesfromTransaction(lotteryConf.Lottery.initTransaction).getOutputs
+
+    val init = {
+      if(initOutput.get(0).getAddress != lotteryConf.Lottery.ticketContract.contract) exp.getBoxesfromTransaction(lotteryConf.Lottery.initTransaction).getOutputs.get(1).getBoxId
+      else exp.getBoxesfromTransaction(lotteryConf.Lottery.initTransaction).getOutputs.get(0).getBoxId
+    }
+    var oldVersion = -1L
+    try {
+      oldVersion = exp.getErgoBoxfromID(init).additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long]
+    }
+
+    if(oldVersion != lotteryVersion){
+      val initTx = getInitTx(lotteryVersion)
+      if (initTx == null){
+        println("issue with getting new initTx")
+        conf.writeInitTx(lotteryFilePath + ".json", "null")
+        return
+      }
+      conf.writeInitTx(lotteryFilePath + ".json", initTx)
+    }
+  }
+
+  private def getInitTx(version: Long): String ={
+    val boxes = exp.getAddressInfo(lotteryConf.Lottery.winnerSelectionContract.contract)
+    val spentList = new ListBuffer[String]()
+    val initTxList = new ListBuffer[OutputInfo]()
+
+    for (i <- 0 until boxes.size()) {
+      val item = boxes.get(i)
+      if(item.getSpentTransactionId != null){
+        spentList.append(item.getSpentTransactionId)
+      }
+    }
+
+    for(tx <- spentList) {
+      val boxes = exp.getBoxesfromTransaction(tx)
+      val outputAddress = boxes.getOutputs.get(0).getAddress
+      if (outputAddress == lotteryConf.Lottery.ticketContract.contract){
+//        val y = exp.getErgoBoxfromID(boxes.getOutputs.get(0).getBoxId).additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long]
+        initTxList.append(boxes.getOutputs.get(0))
+      }
+    }
+
+    for(value <- initTxList){
+      try {
+        if (exp.getErgoBoxfromID(value.getBoxId).additionalRegisters(ErgoBox.R4).value.asInstanceOf[Long] == version) {
+          return value.getSpentTransactionId
+        }
+      } catch {
+        case e: Exception => println(e)
+      }
+    }
+    null
+  }
+
   def initialize(): Unit ={
+    if(this.follow){
+      val obj = new masterAPI
+      val lotteryJson = obj.getMasterLottery(lotteryUrl)
+      if(lotteryJson.Lottery.firstTime.toBoolean){
+        println("Master has not processed any lottery tickets, awaiting completion")
+        Thread.sleep(60000)
+        return
+      }
+      if(lotteryConf.Lottery.ticketContract.singleton == lotteryJson.Lottery.ticketContract.singleton){
+        println("Master has not update config, awaiting completion")
+        Thread.sleep(60000)
+        return
+      }
+      val json = obj.getService(serviceUrl)
+      obj.overWriteServiceWithMasterConf("serviceOwner.json", json)
+      obj.overWriteLotteryWithMasterConf("lotteryConf.json", lotteryJson)
+      return
+    }
     val cometId = serviceConf.cometId
     val comet = new ErgoToken(cometId, 1)
     val priceInComet = serviceConf.cometTicketPrice
@@ -98,17 +216,34 @@ class akkaFunctions {
       version = config.version.toLong, distributionAddress = Address.create(serviceConf.distributionAddress))
 
 
+//    val res = exp.getBoxesfromTransaction(txId)
+//    var poolBoxID = config.collectionContract.initialBox
+//    var ticketContractBoxId = config.ticketContract.initialBox
+//    val firstTime: Boolean = config.firstTime.toBoolean
+//
+//    if (!firstTime) {
+//      poolBoxID = res.getOutputs.get(2).getBoxId
+//      ticketContractBoxId = res.getOutputs.get(1).getBoxId
+//    } else if(config.version > 1){
+//      poolBoxID = res.getOutputs.get(1).getBoxId
+//      ticketContractBoxId = res.getOutputs.get(0).getBoxId
+//    }
+
     val res = exp.getBoxesfromTransaction(txId)
-    var poolBoxID = config.collectionContract.initialBox
-    var ticketContractBoxId = config.ticketContract.initialBox
     val firstTime: Boolean = config.firstTime.toBoolean
 
-    if (!firstTime) {
-      poolBoxID = res.getOutputs.get(2).getBoxId
-      ticketContractBoxId = res.getOutputs.get(1).getBoxId
-    }
+//    val (poolBoxID, ticketContractBoxId) = {
+//      if (!firstTime) (res.getOutputs.get(2).getBoxId, res.getOutputs.get(1).getBoxId)
+//      else if(config.version > 1) (res.getOutputs.get(1).getBoxId, res.getOutputs.get(0).getBoxId)
+//      else (config.collectionContract.initialBox, config.ticketContract.initialBox) //brand new lottery scenario
+//    }
+      val (poolBoxID, ticketContractBoxId) = {
+        if (config.version > 1 && res.getInputs.get(0).getAddress == config.winnerSelectionContract.contract) (res.getOutputs.get(1).getBoxId, res.getOutputs.get(0).getBoxId)
+        else if(!firstTime) (res.getOutputs.get(2).getBoxId, res.getOutputs.get(1).getBoxId)
+        else (config.collectionContract.initialBox, config.ticketContract.initialBox) //brand new lottery scenario
+      }
 
-
+    checkVersionAndTS(ticketContractBoxId)
     val indexInitial = exp.getErgoBoxfromID(ticketContractBoxId).additionalRegisters(ErgoBox.R5).value.toString.toLong + 1L
 
     val firstTxSigned = mintUtil.buildLotteryMint(serviceConf.ticketName + " " + (indexInitial - 1).toString + " v" + lotteryConf.Lottery.version, serviceConf.ticketDesc, proxyInput.get(0), indexInitial, timeStamp, poolBoxID, ticketContractBoxId)
@@ -149,6 +284,8 @@ class akkaFunctions {
 
   def handleWinnerTxnError(): Unit ={
     println("Error with winner transaction, trying to handle")
+    fixInitTxData()
+
     val tokenID = lotteryConf.Lottery.ticketContract.singleton
     val txId = exp.getUnspentBoxFromTokenID(tokenID).getTransactionId
     val res = exp.getBoxesfromTransaction(txId)
@@ -159,9 +296,10 @@ class akkaFunctions {
     val oracleBoxInput = exp.getUnspentBoxFromMempool(oracleBoxId)
     val initTx = lotteryConf.Lottery.initTransaction
     val winningId = mintUtility.getRandomNumberFromBoxID(oracleBoxId, (index - 1).toInt)
-    val winningTicketId = exp.getWinningTicketWithR5(initTx, winningId.toLong)
+    val winningTicketId = exp.getWinningTicketWithR5(initTx, winningId.toLong) //root cause!!! Gets wrong version of ticket lol
     val winningBox = exp.getUnspentBoxFromTokenID(winningTicketId)
     val winningTicketBox = exp.getUnspentBoxFromMempool(winningBox.getBoxId)
+    println(winningId)
     val winnerAddress = Address.create(winningBox.getAddress)
     val winningTicket = new ErgoToken(winningTicketId, 1)
     val status = mintUtility.getChance(winningId.toInt, (index - 1).toInt)
@@ -177,18 +315,17 @@ class akkaFunctions {
     if (status) {
       println("Winner has been found: " + removedQuotes)
       conf.writeWinner(lotteryFilePath + ".json", winningTicketId, winnerAddress.toString)
-      var highestFileNum = fileOperations.getLargestFileName(lotteryHistoryDir)
-      if (highestFileNum == -1) {
-        highestFileNum = 0
-      }
-      fileOperations.copyFile(lotteryFilePath + ".json", lotteryHistoryDir + "lottery_" + (highestFileNum + 1) + ".json")
-      fileOperations.copyFile(serviceFilePath, serviceHistoryDir + "serviceOwner_" + (highestFileNum + 1) + ".json")
+      fileOperations.copyFile(lotteryFilePath + ".json", lotteryHistoryDir + "lottery_" + lotteryConf.Lottery.ticketContract.singleton +".json" )
+      fileOperations.copyFile(serviceFilePath, serviceHistoryDir + "serviceOwner_" + lotteryConf.Lottery.ticketContract.singleton + ".json" )
+      conf.writeTSnull(lotteryFilePath + ".json")
       conf.writeTSnull(lotteryFilePath + ".json")
       return
     }
     println("Loser this round: " + removedQuotes)
-    conf.writeV2(lotteryFilePath + ".json", newVersion, outcomeTx.getOutputsToSpend.get(0).getId.toString, outcomeTx.getOutputsToSpend.get(1).getId.toString, timeStamp)
+    Thread.sleep(120000)
+//    conf.writeV2(lotteryFilePath + ".json", newVersion, timeStamp)
   }
+
 
   def processWinner(): Unit = {
     val config = lotteryConf.Lottery
@@ -196,22 +333,35 @@ class akkaFunctions {
       if (System.currentTimeMillis() >= config.timeStamp.toLong) {
         val singleton = config.ticketContract.singleton
         val latestTicketBox = exp.getUnspentBoxFromTokenID(singleton)
+
+        if(latestTicketBox.getAddress != config.winnerSelectionContract.contract) {
+          checkVersionAndTS(latestTicketBox.getBoxId)
+        }
+
+
         val txId = latestTicketBox.getTransactionId
         val res = exp.getBoxesfromTransaction(txId)
         if (res.getOutputs.get(0).getAddress.equals(config.winnerSelectionContract.contract)){
           println("addresses compared!")
           throw new WinnerSelectionError("error found")
         }
+
         val poolBoxID = exp.getUnspentBoxFromMempool(res.getOutputs.get(2).getBoxId)
         val ticketContractBoxId = exp.getUnspentBoxFromMempool(res.getOutputs.get(1).getBoxId)
+
         val cometAmount = poolBoxID.getTokens.get(0).getValue
+        println("good")
         val comet = new ErgoToken(serviceConf.cometId, cometAmount)
         val index = exp.getErgoBoxfromID(ticketContractBoxId.getId.toString).additionalRegisters(ErgoBox.R5).value.toString.toLong
+
         if (index < 2) {
+
           throw new RuntimeException("index must be higher, not enough tickets have been bought")
         }
 //        val oracleBoxId = "415655d5064d9f09f00657b165442684968298446bba506c216101ddb467738d" //loser for v1
 //        val oracleBoxId = "28df3488741ff5896b8c4951a05ba9e724a8c7bdceb9470756506a130af7cc2a" //winner at 20 buys aka 21 index
+        fixInitTxData()
+
         val oracleBoxId = exp.getUnspentBoxFromTokenID(serviceConf.oracleNFT).getBoxId
         val initTx = config.initTransaction
         val winningId = mintUtility.getRandomNumberFromBoxID(oracleBoxId, (index - 1).toInt)
@@ -245,17 +395,14 @@ class akkaFunctions {
           if (status) {
             println("Winner has been found: " + removedQuotes)
             conf.writeWinner(lotteryFilePath + ".json", winningTicketId, winnerAddress.toString)
-            var highestFileNum = fileOperations.getLargestFileName(lotteryHistoryDir)
-            if(highestFileNum == -1){
-              highestFileNum = 0
-            }
-            fileOperations.copyFile(lotteryFilePath + ".json", lotteryHistoryDir + "lottery_" + (highestFileNum + 1) +".json" )
-            fileOperations.copyFile(serviceFilePath, serviceHistoryDir + "serviceOwner_" + (highestFileNum + 1) + ".json" )
+            fileOperations.copyFile(lotteryFilePath + ".json", lotteryHistoryDir + "lottery_" + lotteryConf.Lottery.ticketContract.singleton +".json" )
+            fileOperations.copyFile(serviceFilePath, serviceHistoryDir + "serviceOwner_" + lotteryConf.Lottery.ticketContract.singleton + ".json" )
             conf.writeTSnull(lotteryFilePath + ".json")
             return
           }
           println("Loser this round: " + removedQuotes)
-          conf.writeV2(lotteryFilePath + ".json", newVersion, outcomeTx.getOutputsToSpend.get(0).getId.toString, outcomeTx.getOutputsToSpend.get(1).getId.toString, timeStamp)
+//          conf.writeV2(lotteryFilePath + ".json", newVersion, timeStamp)
+          Thread.sleep(120000)
         } catch {
           case e  => handleWinnerTxnError()
         }
