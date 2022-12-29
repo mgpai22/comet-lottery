@@ -1,8 +1,6 @@
 package mint
+import configs.serviceOwnerConf
 import node.BaseClient
-import mint.DefaultNodeInfo
-import configs.{conf, serviceOwnerConf}
-import org.ergoplatform.appkit.NetworkType
 import utils.network
 
 class Client()

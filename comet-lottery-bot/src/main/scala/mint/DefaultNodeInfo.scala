@@ -1,7 +1,7 @@
 package mint
-import node.{DefaultNodeInfo, MainNetNodeExplorerInfo, NodeInfo, TestNetNodeExplorerInfo}
+import configs.serviceOwnerConf
+import node.{MainNetNodeExplorerInfo, NodeInfo, TestNetNodeExplorerInfo}
 import org.ergoplatform.appkit.NetworkType
-import configs.{conf, serviceOwnerConf}
 
 
 case class DefaultNodeInfo( networkType: NetworkType) extends NodeInfo(
