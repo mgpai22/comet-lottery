@@ -1,9 +1,8 @@
 package utils
 
-import org.ergoplatform.appkit.{Address, BlockchainContext, BoxOperations, ErgoToken, ExplorerAndPoolUnspentBoxesLoader, InputBox, Parameters}
+import org.ergoplatform.appkit._
 
 import java.util
-import java.util.{ArrayList, Collections}
 import scala.collection.mutable.ListBuffer
 
 class InputBoxes(val ctx: BlockchainContext) {

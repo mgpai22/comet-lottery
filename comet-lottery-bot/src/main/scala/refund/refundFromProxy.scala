@@ -1,7 +1,7 @@
 package refund
 
-import org.ergoplatform.appkit.{Address, BlockchainContext, ErgoToken, InputBox, UnsignedTransaction}
-import utils.{InputBoxes, OutBoxes, TransactionHelper}
+import org.ergoplatform.appkit._
+import utils.{OutBoxes, TransactionHelper}
 
 import scala.collection.JavaConverters._
 
