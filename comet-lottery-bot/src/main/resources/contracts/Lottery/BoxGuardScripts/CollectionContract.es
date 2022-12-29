@@ -14,7 +14,7 @@
         OUTPUTS(0).tokens(1)._1 == ticketContractSingleton // output includes singleton from TicketContractBox
        )
        )
-       // INPUTS [CollectionContractBox, TicketContractBox] -> OUTPUTS [WinnerContractBox + singleton + comet, TxFee, ChangeAddress]
+       // INPUTS [CollectionContractBox + comet, TicketContractBox + singleton] -> OUTPUTS [WinnerContractBox + singleton + comet, TxFee, ChangeAddress]
        sigmaProp(transferToWinnerContract && timePassed) // goes to this sigmaProp if selecting winner
     }
     else {
@@ -23,7 +23,7 @@
     val newIndex = OUTPUTS(2).R5[Long].get == index + 1L // new index must be incremented by one
     val timeStampSame = OUTPUTS(2).R6[Long].get == timeStamp //timestamp does not change, only winner contract can change it
     val newPool = OUTPUTS(2).propositionBytes == SELF.propositionBytes //ensures output recreates pool
-    // INPUTS [CollectionContractBox, TicketContractBox, ProxyContractBuyerBox] -> OUTPUTS [BuyerAddress + ticketNFT, TicketContractBox + singleton, CollectionContractBox + comet, TxFee, ChangeAddress]
+    // INPUTS [CollectionContractBox + comet, TicketContractBox + singleton, ProxyContractBuyerBox + comet] -> OUTPUTS [BuyerAddress + ticketNFT, TicketContractBox + singleton, CollectionContractBox + comet, TxFee, ChangeAddress]
     sigmaProp(ticketContractToken && newPool && newIndex && timeStampSame) //goes to this sigmaProp if ticket is bought
     }
 }

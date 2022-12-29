@@ -90,13 +90,13 @@
        )
        )
     if (ifWinner) {
-    // INPUT [WinnerContractBox  (SELF)] -> OUTPUTS [WinnerAddress, DistributionAddress, TxFee, ChangeAddress]
+    // INPUT [WinnerContractBox  (SELF) + comet] -> OUTPUTS [WinnerAddress + comet, DistributionAddress + comet, TxFee, ChangeAddress]
     // DataInput [OracleBox, WinnerTicketBox]
     // ContextVar [IssuerBox]
     sigmaProp( validate )
     }
     else {
-    // INPUT [WinnerContractBox  (SELF)] -> OUTPUTS [TicketContractBox, CollectionContractBox, TxFee, ChangeAddress]
+    // INPUT [WinnerContractBox (SELF) + comet] -> OUTPUTS [TicketContractBox + singleton, CollectionContractBox + comet, TxFee, ChangeAddress]
     // DataInput [OracleBox, WinnerTicketBox]
     // ContextVar [IssuerBox]
     sigmaProp( validate && newTicketContractBox && newCollectionBox && !chance ) // !chance ensures loser scenario only processes if there is no winner

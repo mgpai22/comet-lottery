@@ -26,7 +26,7 @@
                 validMinerFee
             )
         )
-        // INPUTS [CollectionContractBox, TicketContractBox] -> OUTPUTS [WinnerContractBox + singleton + comet, TxFee, ChangeAddress]
+        // INPUTS [CollectionContractBox + comet, TicketContractBox (SELF) + singleton] -> OUTPUTS [WinnerContractBox + singleton + comet, TxFee, ChangeAddress]
         sigmaProp(transferToWinnerContract && timePassed) // goes to this sigmaProp if selecting winner
     }
     else {
@@ -57,7 +57,7 @@
                 OUTPUTS(2).R5[Long].get == index + 1L //ensures correct index in collection contract
             )
         )
-        // INPUTS [CollectionContractBox, TicketContractBox, ProxyContractBuyerBox] -> OUTPUTS [BuyerAddress + ticketNFT, TicketContractBox + singleton, CollectionContractBox + comet, TxFee, ChangeAddress]
+        // INPUTS [CollectionContractBox + comet, TicketContractBox (SELF) + singleton, ProxyContractBuyerBox + comet] -> OUTPUTS [BuyerAddress + ticketNFT, TicketContractBox + singleton, CollectionContractBox + comet, TxFee, ChangeAddress]
         sigmaProp(ticketBox && proxyUsed && properInput && outBoxCheck) //goes to this sigmaProp if ticket is bought
     }
 
