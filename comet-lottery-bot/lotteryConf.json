@@ -4,7 +4,7 @@
     "initTransaction": "",
     "distributionAddress": "",
     "firstTime": "",
-    "timeStamp": "",
+    "timeStamp": "null",
     "ticketContract": {
       "contract": "",
       "singleton": "",
