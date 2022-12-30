@@ -31,6 +31,7 @@ This is in contrast to Ethereum's virtual machine (EVM), which handles these tas
 ### Winner Selection
 
 - After timestamp is reached, (specified by timestamp in lotteryConf.json) a random number determines which ticket number is the "winner"
+- At least seven tickets must be bought for anything to happen or else there will not be enough ERG to pay for tx fees
 - This ticket has a chance specified in `serviceOwner.json` to actually win the lottery funds
 - If the chance is met, and the ticket wins
     - 90% of the pool funds goes to winner
