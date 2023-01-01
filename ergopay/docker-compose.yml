@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  ergopay:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+  ergopay_reponse:
+    build: ./response
+    command: bash -c "uvicorn main:app --workers 1 --host 0.0.0.0 --port 8050"
+    restart: unless-stopped
+    ports:
+      - "8050:8050"

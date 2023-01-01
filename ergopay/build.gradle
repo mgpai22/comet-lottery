@@ -1,0 +1,31 @@
+plugins {
+	id 'org.springframework.boot' version '2.6.2'
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+}
+
+archivesBaseName = 'ErgoSapiens-ergopay'
+group = 'org.ergoplatform'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+	google()
+	mavenLocal()
+	mavenCentral()
+	maven { url 'https://jitpack.io' }
+	maven {
+		url = "https://oss.sonatype.org/content/repositories/snapshots/"
+	}
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.ergoplatform:ergo-appkit_2.12:4.0.10'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+	useJUnitPlatform()
+}
